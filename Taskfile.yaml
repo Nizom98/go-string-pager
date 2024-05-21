@@ -1,0 +1,14 @@
+# See: https://taskfile.dev/api/
+
+version: '3'
+
+tasks:
+  deps:
+    desc: "Ensure dependencies are installed and tidy"
+    run: once
+    cmds:
+      - go mod tidy
+  lint:
+    cmds:
+      - golangci-lint run {{ .CLI_ARGS }}
+    desc: "Run golangci-lint"
