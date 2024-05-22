@@ -22,7 +22,7 @@ type (
 		pageSize int
 		// next page key, that will be loaded in next call of Next.
 		// 1. Loader will be called with this key until it return the empty next page key.
-		// 2. First Loader call will be with empty next page key.
+		// 2. First time Loader call will be done even if the next page key is empty.
 		// 3. This field value will be updated after each call of Next.
 		nextPageKey string
 		// loader that loads the next page of elements.
@@ -67,7 +67,7 @@ func (p *Pager[T]) Next(ctx context.Context) ([]T, error) {
 		return nil, fmt.Errorf("page %s: %w", p.nextPageKey, err)
 	}
 	p.nextPageKey = nextPageKey
-	p.firstPageLoaded()
+	p.pageLoadedAtLeastOnceTime()
 	return page, nil
 }
 
@@ -88,7 +88,7 @@ func (p *Pager[T]) IsAllLoaded() bool {
 	return p.nextPageKey == "" && p.isFirstPageLoaded
 }
 
-func (p *Pager[T]) firstPageLoaded() {
+func (p *Pager[T]) pageLoadedAtLeastOnceTime() {
 	p.isFirstPageLoadedOnce.Do(func() {
 		p.isFirstPageLoaded = true
 	})
