@@ -186,3 +186,131 @@ func TestPager_Next(t *testing.T) {
 		})
 	}
 }
+
+func TestPager_All(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cases := []struct {
+		name    string
+		loader  func() Loader[int]
+		opts    []Option[int]
+		want    []int
+		wantErr require.ErrorAssertionFunc
+	}{
+		{
+			name: "get 3 pages",
+			loader: func() Loader[int] {
+				loader := &fakeLoader{
+					pageByKey: map[string][]int{
+						"":                {1, 2, 3},
+						"second-page-key": {4, 5, 6},
+						"third-page-key":  {7, 8},
+					},
+					nextPageKeyByPageKey: map[string]string{
+						"":                "second-page-key",
+						"second-page-key": "third-page-key",
+						"third-page-key":  "",
+					},
+					errOnPageKey: "no-error",
+				}
+				return loader
+			},
+			opts: []Option[int]{
+				WithPageSize[int](3),
+			},
+			want:    []int{1, 2, 3, 4, 5, 6, 7, 8},
+			wantErr: require.NoError,
+		},
+		{
+			name: "get 2 pages, an error at the third page",
+			loader: func() Loader[int] {
+				loader := &fakeLoader{
+					pageByKey: map[string][]int{
+						"":                {1, 2, 3},
+						"second-page-key": {4, 5, 6},
+						"third-page-key":  {7, 8},
+					},
+					nextPageKeyByPageKey: map[string]string{
+						"":                "second-page-key",
+						"second-page-key": "third-page-key",
+						"third-page-key":  "",
+					},
+					errOnPageKey: "third-page-key",
+				}
+				return loader
+			},
+			opts: []Option[int]{
+				WithPageSize[int](3),
+			},
+			want: []int{1, 2, 3, 4, 5, 6},
+			wantErr: func(t require.TestingT, err error, _ ...interface{}) {
+				require.EqualError(t, err, "page third-page-key: test error")
+			},
+		},
+		{
+			name: "get 1 page, an error at the second page",
+			loader: func() Loader[int] {
+				loader := &fakeLoader{
+					pageByKey: map[string][]int{
+						"":                {1, 2, 3},
+						"second-page-key": {4, 5, 6},
+						"third-page-key":  {7, 8},
+					},
+					nextPageKeyByPageKey: map[string]string{
+						"":                "second-page-key",
+						"second-page-key": "third-page-key",
+						"third-page-key":  "",
+					},
+					errOnPageKey: "second-page-key",
+				}
+				return loader
+			},
+			opts: []Option[int]{
+				WithPageSize[int](3),
+			},
+			want: []int{1, 2, 3},
+			wantErr: func(t require.TestingT, err error, _ ...interface{}) {
+				require.EqualError(t, err, "page second-page-key: test error")
+			},
+		},
+		{
+			name: "nothing to load",
+			loader: func() Loader[int] {
+				loader := NewMockLoader[int](ctrl)
+				loader.EXPECT().
+					Load(gomock.Any(), "", defaultPageSize).
+					Times(1).
+					Return([]int{}, "", nil)
+				return loader
+			},
+			want:    []int{},
+			wantErr: require.NoError,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.opts = append(tc.opts, WithNextPageLoader[int](tc.loader()))
+			pager, err := New[int](tc.opts...)
+			require.NoError(t, err)
+
+			got, err := pager.All(context.Background())
+			tc.wantErr(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
+type fakeLoader struct {
+	pageByKey            map[string][]int
+	nextPageKeyByPageKey map[string]string
+	errOnPageKey         string
+}
+
+func (l *fakeLoader) Load(_ context.Context, pageKey string, _ int) (page []int, nextPageKay string, err error) {
+	if l.errOnPageKey == pageKey {
+		return nil, "", errors.New("test error")
+	}
+	return l.pageByKey[pageKey], l.nextPageKeyByPageKey[pageKey], nil
+}
