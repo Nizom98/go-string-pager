@@ -2,13 +2,27 @@
 
 version: '3'
 
+vars:
+  GOLANGCI_LINT_VERSION: v1.58.2
+
 tasks:
   deps:
     desc: "Ensure dependencies are installed and tidy"
     run: once
     cmds:
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@{{ .GOLANGCI_LINT_VERSION }}
       - go mod tidy
+  test:
+    desc: "Run unit tests"
+    cmds:
+      - go test -race ./...
   lint:
     cmds:
       - golangci-lint run {{ .CLI_ARGS }}
     desc: "Run golangci-lint"
+  default:
+    desc: "Run all tasks"
+    cmds:
+      - task deps
+      - task lint
+      - task test
