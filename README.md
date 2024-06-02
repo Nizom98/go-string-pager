@@ -1,6 +1,5 @@
 # String pager
 
--------------------
 Go-String-Pager is a paginator library for Go.
 It helps you to paginate your data in a simple way.
 This library uses a string as the key of a page.
@@ -10,15 +9,11 @@ If you want to paginate your data with an **integer number** key, you can use
 
 ## Installation
 
--------------------
-
 ```bash
 go get github.com/Nizom98/go-string-pager
 ```
 
 ## Usage
-
--------------------
 ```go
 package main
 
